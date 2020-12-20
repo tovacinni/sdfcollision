@@ -3,6 +3,7 @@
 #include <igl/writeOBJ.h>
 #include <igl/copyleft/marching_cubes.h>
 #include <Eigen/Core>
+#include <vector>
 #include "include/normalized_grid.h"
 #include "include/normalized_cloth.h"
 #include "include/distance.h"
@@ -35,7 +36,7 @@ int main(int argc, char *argv[])
     igl::copyleft::marching_cubes(S,GV,res,res,res,V,F);
     
     Eigen::MatrixXd visG;
-    normalized_grid(15, visG);
+    normalized_grid(8, visG);
 
     Eigen::VectorXd visD(visG.rows());
     for (int i=0; i<visG.rows(); ++i) {
@@ -52,17 +53,19 @@ int main(int argc, char *argv[])
   j       Move cloth downwards
   k       Move cloth upwards
 )";
+    
+    viewer.core().background_color = Eigen::Vector4f(1.0, 1.0, 1.0, 1.0);
 
     viewer.data_list[0].set_mesh(V, F);
     viewer.data_list[0].set_points(outG, Eigen::RowVector3d(0.0,1.0,0.0));
-    viewer.data_list[0].point_size = 3.0;
+    viewer.data_list[0].add_points(inG, Eigen::RowVector3d(1.0,0.2,0.2));
+    viewer.data_list[0].point_size = 4.0;
     viewer.data_list[0].show_faces = false;
 
     viewer.append_mesh();
     viewer.data_list[1].set_mesh(Vcloth,Fcloth);
-    viewer.data_list[1].set_points(inG, Eigen::RowVector3d(1.0,0.0,0.0));
     //viewer.data_list[1].set_colors(Ccloth);
-    viewer.data_list[1].point_size = 6.0;
+    viewer.data_list[1].point_size = 8.0;
     viewer.data_list[1].show_lines = false;
     viewer.data_list[1].face_based = false;
     viewer.data_list[1].show_faces = true;
@@ -75,11 +78,22 @@ int main(int argc, char *argv[])
             double v1d = sdCone(Vcloth.row(Fcloth(i, 1)));
             double v2d = sdCone(Vcloth.row(Fcloth(i, 2)));
             if (v0d < 0.0 || v1d < 0.0 || v2d < 0.0) {
-                Ccloth.row(i) = Eigen::RowVector3d(0.8,0.0,0.0);
+                Ccloth.row(i) = Eigen::RowVector3d(1.0,0.8,0.8);
             } else {
-                Ccloth.row(i) = Eigen::RowVector3d(0.0,0.8,0.0);
+                Ccloth.row(i) = Eigen::RowVector3d(0.8,1.0,0.8);
             }
         }
+        std::vector<int> _inV;
+        for (int i=0; i<Vcloth.rows(); ++i) {
+            if (sdCone(Vcloth.row(i)) < 0.0) {
+                _inV.push_back(i);
+            }
+        }
+        Eigen::MatrixXd inV(_inV.size(), 3);
+        for (int i=0; i<_inV.size(); ++i) {
+            inV.row(i) = Vcloth.row(_inV[i]);
+        }
+        viewer.data_list[1].set_points(inV, Eigen::RowVector3d(1.0,0.0,0.0));
         viewer.data_list[1].set_colors(Ccloth);
 
         viewer.data_list[1].set_vertices(Vcloth);
@@ -92,10 +106,12 @@ int main(int argc, char *argv[])
         switch(key)
         {
             case 'j':
-                Vcloth.col(1).array() -= 0.025;
+                //Vcloth.col(1).array() -= 0.025;
+                Vcloth.col(1).array() -= 0.01;
                 break;
             case 'k':
-                Vcloth.col(1).array() += 0.025;
+                //Vcloth.col(1).array() += 0.025;
+                Vcloth.col(1).array() += 0.01;
                 break;
             default:
                 return false;
@@ -104,7 +120,7 @@ int main(int argc, char *argv[])
         return true;
     };
 
-    
+    update();
     viewer.launch();
     return EXIT_SUCCESS;
 }
