@@ -16,7 +16,6 @@
 
 int main(int argc, char *argv[])
 {
-
     Eigen::MatrixXd Vcloth;
     Eigen::MatrixXi Fcloth;
     normalized_cloth(15, Vcloth, Fcloth);
