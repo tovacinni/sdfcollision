@@ -7,3 +7,14 @@ using several different schemes, including the optimization-based scheme from
 The implementation is naive in that it's CPU based. If I decide to one day use this code
 beyond just as a learning exercise for myself, I'll probably implement this in CUDA. :)
 
+## Build Instructions
+
+To build, simply:
+
+```
+mkdir build
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release ../
+make -j8
+```
+
