@@ -9,6 +9,7 @@
 #include "include/normalized_cloth.h"
 #include "include/distance.h"
 #include "include/iqblob.h"
+#include "include/grad.h"
 
 #include <iostream>
 
@@ -29,6 +30,13 @@ int main(int argc, char *argv[])
     Eigen::SparseMatrix<double> Bcloth;
     igl::random_points_on_mesh(5000, Vcloth, Fcloth, Bcloth, Icloth);
     Pcloth = Bcloth * Vcloth;
+
+    auto sdf = [](Eigen::Vector3d x) { return sdCone(x); };
+
+    for (int i=0; i<Vcloth.rows(); ++i) {
+        Eigen::Vector3d g;
+        grad(Vcloth.row(i), sdf, g);
+    }
 
     // Build Cone mesh with Marching Cubes
     Eigen::MatrixXd V;
