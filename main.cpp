@@ -1,17 +1,20 @@
+#include <iostream>
+#include <vector>
+
+#include <Eigen/Core>
+
 #include <igl/read_triangle_mesh.h>
 #include <igl/opengl/glfw/Viewer.h>
 #include <igl/writeOBJ.h>
 #include <igl/copyleft/marching_cubes.h>
 #include <igl/random_points_on_mesh.h>
-#include <Eigen/Core>
-#include <vector>
-#include "include/normalized_grid.h"
-#include "include/normalized_cloth.h"
-#include "include/distance.h"
-#include "include/iqblob.h"
-#include "include/grad.h"
 
-#include <iostream>
+#include "include/distance.h"
+#include "include/frank_wolfe.h"
+#include "include/grad.h"
+#include "include/iqblob.h"
+#include "include/normalized_cloth.h"
+#include "include/normalized_grid.h"
 
 #define STRINGIFY2(X) #X
 #define STRINGIFY(X) STRINGIFY2(X)
@@ -23,6 +26,8 @@ int main(int argc, char *argv[])
     Eigen::MatrixXd Vcloth;
     Eigen::MatrixXi Fcloth;
     normalized_cloth(15, Vcloth, Fcloth);
+    Vcloth.col(0).array() += 0.05;
+    //normalized_cloth(3, Vcloth, Fcloth);
 
     // Sample from cloth for sampling approach
     Eigen::MatrixXd Pcloth;
@@ -31,11 +36,12 @@ int main(int argc, char *argv[])
     igl::random_points_on_mesh(5000, Vcloth, Fcloth, Bcloth, Icloth);
     Pcloth = Bcloth * Vcloth;
 
-    auto sdf = [](Eigen::Vector3d x) { return sdCone(x); };
+    Eigen::MatrixXd Pcloth_opt;
+    frank_wolfe(Vcloth, Fcloth, sdCone, Pcloth_opt);
 
     for (int i=0; i<Vcloth.rows(); ++i) {
         Eigen::Vector3d g;
-        grad(Vcloth.row(i), sdf, g);
+        grad(Vcloth.row(i), sdCone, g);
     }
 
     // Build Cone mesh with Marching Cubes
@@ -97,7 +103,8 @@ int main(int argc, char *argv[])
             double v0d = sdCone(Vcloth.row(Fcloth(i, 0)));
             double v1d = sdCone(Vcloth.row(Fcloth(i, 1)));
             double v2d = sdCone(Vcloth.row(Fcloth(i, 2)));
-            if (v0d < 0.0 || v1d < 0.0 || v2d < 0.0) {
+            double od = sdCone(Pcloth_opt.row(i));
+            if (od < 0.0 || v0d < 0.0 || v1d < 0.0 || v2d < 0.0) {
                 Ccloth.row(i) = Eigen::RowVector3d(1.0,0.8,0.8);
             } else {
                 Ccloth.row(i) = Eigen::RowVector3d(0.8,1.0,0.8);
@@ -128,6 +135,8 @@ int main(int argc, char *argv[])
         //viewer.data_list[0].add_points(outP, Eigen::RowVector3d(0.0,1.0,0.0));
 
         viewer.data_list[1].set_points(inV, Eigen::RowVector3d(1.0,0.0,0.0));
+        frank_wolfe(Vcloth, Fcloth, sdCone, Pcloth_opt);
+        viewer.data_list[1].add_points(Pcloth_opt, Eigen::RowVector3d(1.0,0.3,0.0));
         viewer.data_list[1].set_colors(Ccloth);
 
         viewer.data_list[1].set_vertices(Vcloth);
