@@ -98,6 +98,8 @@ int main(int argc, char *argv[])
     viewer.data_list[1].show_lines = true;
     
     const auto & update = [&]() {
+        frank_wolfe(Vcloth, Fcloth, sdCone, Pcloth_opt);
+        
         Eigen::MatrixXd Ccloth(Fcloth.rows(), 3);
         for (int i=0; i<Fcloth.rows(); ++i) {
             double v0d = sdCone(Vcloth.row(Fcloth(i, 0)));
@@ -135,7 +137,6 @@ int main(int argc, char *argv[])
         //viewer.data_list[0].add_points(outP, Eigen::RowVector3d(0.0,1.0,0.0));
 
         viewer.data_list[1].set_points(inV, Eigen::RowVector3d(1.0,0.0,0.0));
-        frank_wolfe(Vcloth, Fcloth, sdCone, Pcloth_opt);
         viewer.data_list[1].add_points(Pcloth_opt, Eigen::RowVector3d(1.0,0.3,0.0));
         viewer.data_list[1].set_colors(Ccloth);
 
