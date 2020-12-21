@@ -2,6 +2,7 @@
 #include <igl/opengl/glfw/Viewer.h>
 #include <igl/writeOBJ.h>
 #include <igl/copyleft/marching_cubes.h>
+#include <igl/random_points_on_mesh.h>
 #include <Eigen/Core>
 #include <vector>
 #include "include/normalized_grid.h"
@@ -17,14 +18,23 @@
 
 int main(int argc, char *argv[])
 {
+    // Build cloth
     Eigen::MatrixXd Vcloth;
     Eigen::MatrixXi Fcloth;
     normalized_cloth(15, Vcloth, Fcloth);
 
+    // Sample from cloth for sampling approach
+    Eigen::MatrixXd Pcloth;
+    Eigen::MatrixXi Icloth;
+    Eigen::SparseMatrix<double> Bcloth;
+    igl::random_points_on_mesh(5000, Vcloth, Fcloth, Bcloth, Icloth);
+    Pcloth = Bcloth * Vcloth;
+
+    // Build Cone mesh with Marching Cubes
     Eigen::MatrixXd V;
     Eigen::MatrixXi F;    
 
-    const int res = 128;
+    const int res = 64;
     Eigen::MatrixXd GV;
     normalized_grid(res, GV);
 
@@ -35,6 +45,7 @@ int main(int argc, char *argv[])
 
     igl::copyleft::marching_cubes(S,GV,res,res,res,V,F);
     
+    // Build grid for visualization
     Eigen::MatrixXd visG;
     normalized_grid(8, visG);
 
@@ -48,6 +59,7 @@ int main(int argc, char *argv[])
     Eigen::MatrixXd outG;
     igl::slice_mask(visG, visD.array()>0.0, 1, outG);
 
+    // Building the visualization
     igl::opengl::glfw::Viewer viewer;
     std::cout<<R"(
   j       Move cloth downwards
@@ -57,15 +69,15 @@ int main(int argc, char *argv[])
     viewer.core().background_color = Eigen::Vector4f(1.0, 1.0, 1.0, 1.0);
 
     viewer.data_list[0].set_mesh(V, F);
-    viewer.data_list[0].set_points(outG, Eigen::RowVector3d(0.0,1.0,0.0));
-    viewer.data_list[0].add_points(inG, Eigen::RowVector3d(1.0,0.2,0.2));
     viewer.data_list[0].point_size = 4.0;
     viewer.data_list[0].show_faces = false;
+    viewer.data_list[0].line_width = 2.0;
 
     viewer.append_mesh();
     viewer.data_list[1].set_mesh(Vcloth,Fcloth);
     //viewer.data_list[1].set_colors(Ccloth);
     viewer.data_list[1].point_size = 8.0;
+    viewer.data_list[1].line_width = 2.0;
     viewer.data_list[1].show_lines = false;
     viewer.data_list[1].face_based = false;
     viewer.data_list[1].show_faces = true;
@@ -83,16 +95,30 @@ int main(int argc, char *argv[])
                 Ccloth.row(i) = Eigen::RowVector3d(0.8,1.0,0.8);
             }
         }
-        std::vector<int> _inV;
+
+        Eigen::VectorXd Vd(Vcloth.rows());
         for (int i=0; i<Vcloth.rows(); ++i) {
-            if (sdCone(Vcloth.row(i)) < 0.0) {
-                _inV.push_back(i);
-            }
+            Vd(i) = sdCone(Vcloth.row(i));
         }
-        Eigen::MatrixXd inV(_inV.size(), 3);
-        for (int i=0; i<_inV.size(); ++i) {
-            inV.row(i) = Vcloth.row(_inV[i]);
+
+        Eigen::MatrixXd inV;
+        igl::slice_mask(Vcloth, Vd.array()<0.0, 1, inV);
+
+        Eigen::VectorXd Pd(Pcloth.rows());
+        for (int i=0; i<Pcloth.rows(); ++i) {
+            Pd(i) = sdCone(Pcloth.row(i));
         }
+
+        Eigen::MatrixXd inP;
+        igl::slice_mask(Pcloth, Pd.array()<0.0, 1, inP);
+        
+        Eigen::MatrixXd outP;
+        igl::slice_mask(Pcloth, Pd.array()>0.0, 1, outP);
+        viewer.data_list[0].set_points(outG, Eigen::RowVector3d(0.0,1.0,0.0));
+        viewer.data_list[0].add_points(inG, Eigen::RowVector3d(1.0,0.0,0.0));
+        //viewer.data_list[0].add_points(inP, Eigen::RowVector3d(1.0,0.0,0.0));
+        //viewer.data_list[0].add_points(outP, Eigen::RowVector3d(0.0,1.0,0.0));
+
         viewer.data_list[1].set_points(inV, Eigen::RowVector3d(1.0,0.0,0.0));
         viewer.data_list[1].set_colors(Ccloth);
 
@@ -108,10 +134,13 @@ int main(int argc, char *argv[])
             case 'j':
                 //Vcloth.col(1).array() -= 0.025;
                 Vcloth.col(1).array() -= 0.01;
+                Pcloth.col(1).array() -= 0.01;
                 break;
             case 'k':
                 //Vcloth.col(1).array() += 0.025;
                 Vcloth.col(1).array() += 0.01;
+                Pcloth.col(1).array() += 0.01;
+                break;
                 break;
             default:
                 return false;
