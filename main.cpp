@@ -78,6 +78,8 @@ int main(int argc, char *argv[])
     std::cout<<R"(
   j       Move cloth downwards
   k       Move cloth upwards
+  b       Show the point samples
+  n       Toggle optimized point samples vs. uniform point samples
 )";
     
     viewer.core().background_color = Eigen::Vector4f(1.0, 1.0, 1.0, 1.0);
@@ -97,6 +99,9 @@ int main(int argc, char *argv[])
     viewer.data_list[1].show_faces = true;
     viewer.data_list[1].show_lines = true;
     
+	bool viewer_show_samples = true;
+	bool viewer_uniform_samples = false;
+
     const auto & update = [&]() {
         frank_wolfe(Vcloth, Fcloth, sdCone, Pcloth_opt);
         
@@ -105,7 +110,10 @@ int main(int argc, char *argv[])
             double v0d = sdCone(Vcloth.row(Fcloth(i, 0)));
             double v1d = sdCone(Vcloth.row(Fcloth(i, 1)));
             double v2d = sdCone(Vcloth.row(Fcloth(i, 2)));
-            double od = sdCone(Pcloth_opt.row(i));
+            double od =  sdCone(Pcloth_opt.row(i));
+			if (!viewer_show_samples || viewer_uniform_samples) {
+				od = 1.0;
+			}
             if (od < 0.0 || v0d < 0.0 || v1d < 0.0 || v2d < 0.0) {
                 Ccloth.row(i) = Eigen::RowVector3d(1.0,0.8,0.8);
             } else {
@@ -133,17 +141,20 @@ int main(int argc, char *argv[])
         igl::slice_mask(Pcloth, Pd.array()>0.0, 1, outP);
         viewer.data_list[0].set_points(outG, Eigen::RowVector3d(0.0,1.0,0.0));
         viewer.data_list[0].add_points(inG, Eigen::RowVector3d(1.0,0.0,0.0));
-        //viewer.data_list[0].add_points(inP, Eigen::RowVector3d(1.0,0.0,0.0));
-        //viewer.data_list[0].add_points(outP, Eigen::RowVector3d(0.0,1.0,0.0));
+        if (viewer_show_samples && viewer_uniform_samples) {
+			viewer.data_list[0].add_points(inP, Eigen::RowVector3d(1.0,0.0,0.0));
+			viewer.data_list[0].add_points(outP, Eigen::RowVector3d(0.0,1.0,0.0));
+		}
 
         viewer.data_list[1].set_points(inV, Eigen::RowVector3d(1.0,0.0,0.0));
-        viewer.data_list[1].add_points(Pcloth_opt, Eigen::RowVector3d(1.0,0.3,0.0));
+        if (viewer_show_samples && !viewer_uniform_samples) {
+			viewer.data_list[1].add_points(Pcloth_opt, Eigen::RowVector3d(1.0,0.3,0.0));
+		}
         viewer.data_list[1].set_colors(Ccloth);
 
         viewer.data_list[1].set_vertices(Vcloth);
         viewer.data_list[1].compute_normals();
     };
-
     viewer.callback_key_pressed = 
     [&](igl::opengl::glfw::Viewer &, unsigned int key, int){
         
@@ -159,6 +170,11 @@ int main(int argc, char *argv[])
                 Vcloth.col(1).array() += 0.01;
                 Pcloth.col(1).array() += 0.01;
                 break;
+			case 'b':
+				viewer_show_samples = viewer_show_samples ? false : true;
+                break;
+			case 'n':
+				viewer_uniform_samples = viewer_uniform_samples ? false : true;
                 break;
             default:
                 return false;
